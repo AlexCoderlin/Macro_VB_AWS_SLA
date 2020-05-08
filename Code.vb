@@ -1,15 +1,17 @@
-'-----------------------
-'      VB_CODE
-'-----------------------
+'-------------------------
+'   AWS_CONNECTION_CODE
+'-------------------------
 Sub Ejecutar_SQL_en_AWS()
-
+    
+    'Apagamos la actualizacion grafica para reducir recursos durante la ejecucion
+    Application.ScreenUpdating = False
+   
     'Inicialización de variables
     Dim con As New ADODB.Connection
     Dim rs As New ADODB.Recordset
     Dim ConnectionString As String
-    Dim sql As String
-
-
+    Dim sql, FechaFin, FechaIni As String
+    
     'Cadena de conexión con una BBDD de Athena AWS, parametros: https://athena-downloads.s3.amazonaws.com/drivers/ODBC/athena-preview/SimbaAthenaODBC_1.1.0_preview/Simba+Athena+ODBC+Install+and+Configuration+Guide.pdf
          ConnectionString = "Driver={Simba Athena ODBC Driver};" & _
                             "AwsRegion=us-west-2;" & _
@@ -21,11 +23,31 @@ Sub Ejecutar_SQL_en_AWS()
     'Abrir conexión con la BBDD
     con.Open ConnectionString
 
-    'Comprueba el estado de la conexion, si resulta 1 = objeto abierto o 0 = objeto cerrado segun W3School "ADO State Property"
-    MsgBox (con.State)
-
     'Timeout en segundos para ejecutar la SQL completa antes de reportar un error
     con.CommandTimeout = 900
+
+    'Comprueba el estado de la conexion, si resulta 1 = objeto abierto o 0 = objeto cerrado segun W3School "ADO State Property"
+    Dim x As String
+        Select Case con.State
+            Case 0:
+                x = "No se ha podido establecer conexion con AWS."
+            Case 1:
+                x = "Conexion con AWS ha sido Exitosa."
+            Case 2:
+                x = "Conexion con AWS aun esta en proceso."
+            Case 4:
+                x = "Conexion con AWS está ejecutando un comando."
+            Case 8:
+                x = "AWS esta recuperando filas."
+        End Select
+    MsgBox x, vbInformation, "Estado de Conexion"
+    
+    'Limpia datos previos de la tabla excel
+    ActiveWorkbook.Sheets(1).ListObjects("Colin_Table").DataBodyRange.ClearContents
+
+    'Declaramos variables con el marco de tiempo de datos que queremos obtener en el query SQL
+    FechaIni = Format(Now(), "yyyy-MM-dd 00:00:00")
+    FechaFin = Format(Now(), "yyyy-MM-dd hh:mm:ss")
 
     'Esta es la SQL que queremos consultar
     sql = "SELECT    queue.name," & _
@@ -39,57 +61,19 @@ Sub Ejecutar_SQL_en_AWS()
     "agent.username " & _
     "FROM AwsDataCatalog.asd_amr_db.all_ctr_data " & _
     "WHERE substring(queue.name,1,5) = 'Femsa' " & _
-    "And cast(replace(replace(queue.enqueuetimestamp,'T',' '),'Z','') as timestamp) between cast('2020-04-28 05:00:00' as timestamp) and cast('2020-04-29 04:59:59' as timestamp) " & _
+    "And cast(replace(replace(queue.enqueuetimestamp,'T',' '),'Z','') as timestamp) between cast('" & FechaIni & "' as timestamp) and cast('" & FechaFin & "' as timestamp) " & _
     "order by cast(replace(replace(queue.enqueuetimestamp,'T',' '),'Z','') as timestamp)"
-
+ 
     'Lanzamos la SQL
     rs.Open sql, con
     
-    'Copiamos los resultados de la SQL sobre la primera hoja del Excel en la celda A2
+    'Copiamos los resultados de la SQL sobre la primera hoja del Excel en la celda A2 (perteneciente a la tabla)
     Sheets(1).Range("A2").CopyFromRecordset rs
     
     'Cerramos las conexiones
     rs.Close
     con.Close
     
+    'Encendemos la actualizacion grafica
+    Application.ScreenUpdating = True
 End Sub
-
-
-
-
-
- 'Crear tabla en Excel VBA
-    Sheet1.ListObjects.Add (xlSrcRange, Range ("A1: D10"),, xlYes) .Name = "myTable1"
-
-Sheets("InteraccionesDATA").Select
-    Range("A1").Select
-    
-    Dim UltCol As Integer
-    
-UltCol = Cells(1, Cells.Columns.Count).End(xlToLeft).Column
-Dim UltRow As Integer
-    
-    'ActiveSheet.Range(Cells(1, 1), Cells(5, 5)).Select
-    
-    UltRow = ActiveSheet.Columns("A").Find("*", _
-        searchorder:=xlByRows, searchdirection:=xlPrevious).Row
-    
-    ActiveSheet.ListObjects.Add(xlSrcRange, Range("A1", Cells(UltRow, UltCol)), , xlYes).Name = _
-        "Table1"
-Sheets("DATA").Select
-
-LibroOr_Horario.Activate
- Valid1 = Range("B27", Range("B27").End(xlDown)).Count
- LibroOr_Tickets.Activate
- Valid2 = Range("B20", Range("B20").End(xlDown)).Count + 19
-
-
- 'Limpia Libro
-    Set B = Range("B8", Range("B8").End(xlDown))
-    Set DEF = Range("D8", Range("F8").End(xlDown))
-    Set H = Range("H8", Range("H8").End(xlDown))
-    
-    Union(B, DEF, H).ClearContents
-    Union(B, DEF, H).Interior.ColorIndex = 0
-    Columns("J:J").ColumnWidth = 25.43
-    Columns("K:K").ColumnWidth = 14

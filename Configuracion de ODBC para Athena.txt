@@ -1,8 +1,0 @@
-Data Source Name: Cualquier cosa
-Description: Cualquier cosa
-AWS Region: us-west-2 
-S3 Output Location: s3://aws-athena-query-results-992974280925-us-west-2/ 
-
-	"Authentication Options..."
-User: AKIA6OMPBDDOTPQCWMO6
-Pass: Gb3H3PB7x2aqQsAxK3Biw6SU3VjhgzwsoiAZl5U4
