@@ -17,8 +17,8 @@ Sub Ejecutar_SQL_en_AWS()
                             "AwsRegion=us-west-2;" & _
                             "S3OutputLocation=s3://aws-athena-query-results-992974280925-us-west-2/;" & _
                             "AuthenticationType=IAM Credentials;" & _
-                            "UID=AKIA6OMPBDDOTPQCWMO6;" & _
-                            "PWD=Gb3H3PB7x2aqQsAxK3Biw6SU3VjhgzwsoiAZl5U4;"
+                            "UID=Your_User;" & _
+                            "PWD=Your_Password;"
 
     'Abrir conexión con la BBDD
     con.Open ConnectionString
