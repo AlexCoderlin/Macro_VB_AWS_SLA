@@ -1,3 +1,5 @@
+Public Sync_Status As Boolean
+Public WB_Macro As Workbook
 Dim Tiempo
 
 Sub Ejecutar_SQL_en_AWS()
@@ -15,6 +17,9 @@ Sub Ejecutar_SQL_en_AWS()
      Dim ConnectionString As String
      Dim sql, FechaFin, FechaIni, FechaActual, FechaLimite As String
      Dim MesPrimerReg, y As Integer
+
+    'Almacenamos el libro actual en variable
+     Set WB_Macro = Application.ThisWorkbook 
     
 '---- Construimos conexion ODBC ----
 
@@ -53,53 +58,52 @@ Sub Ejecutar_SQL_en_AWS()
     'Obtiene la fecha actual.
      FechaActual = Format(Now(), "yyyy-MM-dd hh:mm:ss")
     'Obtiene la fecha limite.
-     FechaLimite = Format(Now(), "yyyy-MM-26 23:59:59")
+     FechaLimite = Format(Now(), "yyyy-MM-26 23:59:59") 'UTC: "yyyy-MM-26 23:59:59".
 
     'Si la fecha actual es menor a la limite, variable FechaIni = ultimo registro de tabla (ultima sincronización).
         If FechaActual < FechaLimite Then
 
                 'Obtenemos la cantidad de filas existentes en la tabla.
-                    FechUltReg = ActiveWorkbook.Sheets(1).ListObjects("AWS_Table").ListRows.Count
+                    FechUltReg = WB_Macro.Sheets(1).ListObjects("AWS_Table").ListRows.Count
 
                 'Declaramos variable con inicio del marco de tiempo con la ultima fecha en la tabla para realizar query SQL.
-                    FechaIni = ActiveWorkbook.Sheets(1).ListObjects("AWS_Table").DataBodyRange(FechUltReg, 4).Value
+                    FechaIni = WB_Macro.Sheets(1).ListObjects("AWS_Table").DataBodyRange(FechUltReg, 4).Value
 
                 'Elimina el ultimo registro para no ser duplicado por query.
-                    y = ActiveWorkbook.Sheets(1).ListObjects("AWS_Table").ListRows.Count
-                    ActiveWorkbook.Sheets(1).ListObjects("AWS_Table").ListRows(y).Range.Delete
+                    y = WB_Macro.Sheets(1).ListObjects("AWS_Table").ListRows.Count
+                    WB_Macro.Sheets(1).ListObjects("AWS_Table").ListRows(y).Range.Delete
 
         Else
 
                 'Obtienemos el mes del primer registro en la tabla.
-                 MesPrimerReg = (Month(ActiveWorkbook.Sheets(1).Range("E3").Value))
+                 MesPrimerReg = (Month(WB_Macro.Sheets(1).Range("E3").Value))
 
                 
                     'Si el primer registro de la tabla es del mes pasado, eliminamos tabla y comenzamos nuevo registro.
                     If (Month(FechaActual)) <> MesPrimerReg Then
                         
                         'Limpiamos datos antiguos de la tabla.
-                            ActiveWorkbook.Sheets(1).ListObjects("AWS_Table").DataBodyRange.Delete
+                            WB_Macro.Sheets(1).ListObjects("AWS_Table").DataBodyRange.Delete
 
                         'Declaramos variable con inicio del marco de tiempo con primer dia del mes presente para realizar query SQL.
-                            FechaIni = Format(Now(), "yyyy-MM-27 00:00:00")
+                            FechaIni = Format(Now(), "yyyy-MM-27 05:00:00") 'Para UTC: "yyyy-MM-27 00:00:00" pero hemos restado 5 Hrs.
                         
                     'Si el primer registro de la tabla es del mes actual, variable FechaIni = ultimo registro de tabla (ultima sincronización).
                     Else
 
                         'Obtenemos la cantidad de filas existentes en la tabla.
-                            FechUltReg = ActiveWorkbook.Sheets(1).ListObjects("AWS_Table").ListRows.Count
+                            FechUltReg = WB_Macro.Sheets(1).ListObjects("AWS_Table").ListRows.Count
 
                         'Declaramos variable con inicio del marco de tiempo con la ultima fecha en la tabla para realizar query SQL.
-                            FechaIni = ActiveWorkbook.Sheets(1).ListObjects("AWS_Table").DataBodyRange(FechUltReg, 4).Value
+                            FechaIni = WB_Macro.Sheets(1).ListObjects("AWS_Table").DataBodyRange(FechUltReg, 4).Value
 
                         'Elimina el ultimo registro para no ser duplicado por query.
-                            y = ActiveWorkbook.Sheets(1).ListObjects("AWS_Table").ListRows.Count
-                            ActiveWorkbook.Sheets(1).ListObjects("AWS_Table").ListRows(y).Range.Delete
+                            y = WB_Macro.Sheets(1).ListObjects("AWS_Table").ListRows.Count
+                            WB_Macro.Sheets(1).ListObjects("AWS_Table").ListRows(y).Range.Delete
 
                     End If
 
         End If
-
 
 '---- Ejecutamos query SQL ----
 
@@ -125,7 +129,7 @@ Sub Ejecutar_SQL_en_AWS()
      rs.Open sql, con
 
     'Averiguamos donde pegar los datos obtenidos por el query, posteriormente los pegamos.
-     y = ActiveWorkbook.Sheets(1).ListObjects("AWS_Table").ListRows.Count + 3
+     y = WB_Macro.Sheets(1).ListObjects("AWS_Table").ListRows.Count + 3
      Sheets(1).Range("B" & y).CopyFromRecordset rs
 
     'Cerramos las conexiones.
@@ -133,28 +137,33 @@ Sub Ejecutar_SQL_en_AWS()
      con.Close
 
     'Calculamos nueva columna para cantidad de tiempo en responder una llamada.
-     ActiveWorkbook.Sheets(1).ListObjects("AWS_Table").ListColumns("ResponseTime").DataBodyRange.FormulaR1C1 = "=IF([@Agente]=1,[@connectedtoagenttimestamp]-[@enqueuetimestamp],"""")"
+     WB_Macro.Sheets(1).ListObjects("AWS_Table").ListColumns("ResponseTime").DataBodyRange.FormulaR1C1 = "=IF([@Agente]=1,[@connectedtoagenttimestamp]-[@enqueuetimestamp],"""")"
 
     'Calculamos nueva columna para cantidad de tiempo dentro de llamada.
-     ActiveWorkbook.Sheets(1).ListObjects("AWS_Table").ListColumns("CallTime").DataBodyRange.FormulaR1C1 = "=[@disconnecttimestamp]-[@connectedtoagenttimestamp]"
+     WB_Macro.Sheets(1).ListObjects("AWS_Table").ListColumns("CallTime").DataBodyRange.FormulaR1C1 = "=[@disconnecttimestamp]-[@connectedtoagenttimestamp]"
 
-    'Calculamos nueva columna para dias (como control para tablas dinamicas)
-     ActiveWorkbook.Sheets(1).ListObjects("AWS_Table").ListColumns("Days").DataBodyRange.FormulaR1C1 = "=TRUNC([@enqueuetimestamp])"
-        
-    'Calculamos nueva columna para dias (como control para tablas dinamicas)
-     ActiveWorkbook.Sheets(1).ListObjects("AWS_Table").ListColumns("Country").DataBodyRange.FormulaR1C1 = "=IFNA(VLOOKUP([@name],Table_Country[[name]:[Pais]],2,FALSE),""Not found"")"
+    'Calculamos nueva columna para dias (como control para tablas dinamicas).
+     WB_Macro.Sheets(1).ListObjects("AWS_Table").ListColumns("Days").DataBodyRange.FormulaR1C1 = "=TRUNC([@enqueuetimestamp])"
+    
+    'Calculamos nueva columna para UTC-5 como horario Guadalajara (como control para tablas dinamicas).
+     WB_Macro.Sheets(1).ListObjects("AWS_Table").ListColumns("UTC-5").DataBodyRange.FormulaR1C1 = "=MOD([@enqueuetimestamp]-[@Days]+(-5/24),1)"
+
+    'Calculamos nueva columna para clasificar por horas horario UTC-5 (como control para tablas dinamicas).
+     WB_Macro.Sheets(1).ListObjects("AWS_Table").ListColumns("Hours").DataBodyRange.FormulaR1C1 = "=TIME(HOUR([@[UTC-5]]),FLOOR(MINUTE([@[UTC-5]]),30),0)"
+
+    'Calculamos nueva columna para dias (como control para tablas dinamicas).
+     WB_Macro.Sheets(1).ListObjects("AWS_Table").ListColumns("Country").DataBodyRange.FormulaR1C1 = "=IFNA(VLOOKUP([@name],Table_Country[[name]:[Pais]],2,FALSE),""Not found"")"
     
     'Actualizamos tablas dinamicas con cambios.
-     ActiveWorkbook.RefreshAll
+     WB_Macro.RefreshAll
      
-    'Programamos repetir la ejecucion de esta macro
-     Tiempo = VBA.DateAdd("n", 4, Time)
+    'Programamos repetir la ejecucion de esta macro (cada 5 min).
+     Tiempo = VBA.DateAdd("n", 5, Time)
      Application.OnTime EarliestTime:=Tiempo, Procedure:="Ejecutar_SQL_en_AWS"
 
     'Encendemos la actualizacion grafica.
      Application.DisplayAlerts = True
      Application.ScreenUpdating = True
-     
      
 End Sub
 
@@ -166,20 +175,33 @@ End Sub
 
 Sub Button_Sync()
  
-Dim status As String
-status = Sheets(3).Range("V30").Value
-
-    If status = "Activada" Then
-
-        Sheets(3).Range("V30").Value = "Desactivada"
-        Call CancelarMacro
+    If Sync_Status = False Then 
+        With Sheets(3).Shapes("TextBox333")
+            .Fill.ForeColor.RGB = RGB(55, 213, 135) 'azul 85, 142, 213
+            .Line.BackColor.RGB = RGB(198, 217, 241)
+            .TextFrame.Characters.Font.Color = RGB(255, 255, 255)
+            .TextFrame.Characters.Text = "Sincronizacion Activada"
+        End With
+            Call Ejecutar_SQL_en_AWS
+            Sync_Status = True
     Else
-
-        Sheets(3).Range("V30").Value = "Activada"
-        Call Ejecutar_SQL_en_AWS
-
+        With Sheets(3).Shapes("TextBox333")
+            .Fill.ForeColor.RGB = RGB(226, 184, 54)
+            .Line.BackColor.RGB = RGB(198, 217, 241)
+            .TextFrame.Characters.Font.Color = RGB(255, 255, 255)
+            .TextFrame.Characters.Text = "Sincronizacion Desactivada"
+        End With
+            Call CancelarMacro
+            Sync_Status = False
     End If
 
+End Sub
+
+'-------------------------
+'   Workbook_Open (Al iniciar el libro creamos la variable de estado de sincronizacion para la funcion Button_Sync)
+'-------------------------
+Private Sub Workbook_Open()
+    Sync_Status = False
 End Sub
 
 
